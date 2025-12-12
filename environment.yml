@@ -16,3 +16,6 @@ dependencies:
     - "tensorflow[and-cuda]>=2.15.0"
     - opencv-python>=4.11.0.86
 
+
+
+
