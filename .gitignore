@@ -1,0 +1,33 @@
+# Model files (too large for Git)
+*.h5
+*.joblib
+*.pkl
+*.pth
+*.ckpt
+*.pb
+*.onnx
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
