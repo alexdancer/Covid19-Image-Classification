@@ -116,7 +116,7 @@ def main():
         verify_installation()
         
         print("\n" + "=" * 60)
-        print("✅ Environment setup complete!")
+        print("Environment setup complete!")
         print("=" * 60)
         print(f"\nTo activate the environment, run:")
         print(f"  conda activate {ENV_NAME}")

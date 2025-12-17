@@ -8,3 +8,6 @@
 - Still haven't fixed the class imbalance issues
 - Added se_block function for Channel Attention and ResNet for slightly improved model
 - Might have to get rid of Atypical Appearance and Indertiminate appearance images since the model cannot accurately predict those
+
+**12/14/2025**
+- Added model serialization to help save my model

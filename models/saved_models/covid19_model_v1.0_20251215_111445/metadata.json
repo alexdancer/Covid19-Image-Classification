@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "created_at": "20251215_111445",
+  "created_date": "2025-12-15T11:14:57.514967",
+  "tensorflow_version": "2.20.0",
+  "description": "Custom CNN with Residual Connections and SE Attention for COVID-19 chest X-ray classification",
+  "model_type": "Custom CNN with Residual Connections and SE Attention",
+  "num_classes": 4,
+  "input_shape": [
+    256,
+    256,
+    3
+  ],
+  "hyperparameters": {
+    "IMG_SIZE": 256,
+    "BATCH_SIZE": 64,
+    "LEARNING_RATE": 0.001,
+    "NUM_CLASSES": 4,
+    "EPOCHS": 50
+  },
+  "class_labels": {
+    "0": "Negative for Pneumonia",
+    "1": "Typical Appearance",
+    "2": "Indeterminate Appearance",
+    "3": "Atypical Appearance"
+  },
+  "validation_metrics": {
+    "accuracy": 0.5982636148382005,
+    "precision": 0.4466160858328328,
+    "recall": 0.5982636148382005,
+    "f1_score": 0.5097534854232609,
+    "loss": 1.0550495386123657
+  },
+  "augmentation_config": {
+    "rotation_range": 15,
+    "width_shift_range": 0.1,
+    "height_shift_range": 0.1,
+    "shear_range": 0.1,
+    "zoom_range": 0.1,
+    "horizontal_flip": true,
+    "fill_mode": "nearest"
+  }
+}
