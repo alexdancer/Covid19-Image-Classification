@@ -1,0 +1,50 @@
+{
+  "version": "2.0",
+  "created_at": "20251221_133544",
+  "created_date": "2025-12-21T13:36:01.757239",
+  "tensorflow_version": "2.20.0",
+  "description": "Transfer Learning model using ResNet50 with two-phase training (feature extraction + fine-tuning) for COVID-19 chest X-ray classification",
+  "model_type": "Custom CNN with Residual Connections and SE Attention",
+  "num_classes": 4,
+  "input_shape": [
+    256,
+    256,
+    3
+  ],
+  "hyperparameters": {
+    "IMG_SIZE": 256,
+    "BATCH_SIZE": 32,
+    "LEARNING_RATE_PHASE1": 0.001,
+    "LEARNING_RATE_PHASE2": 1e-05,
+    "NUM_CLASSES": 4,
+    "EPOCHS_PHASE1": 30,
+    "EPOCHS_PHASE2": 20,
+    "BASE_MODEL_NAME": "ResNet50",
+    "FINE_TUNE_LAYERS": null
+  },
+  "class_labels": {
+    "0": "Negative for Pneumonia",
+    "1": "Typical Appearance",
+    "2": "Indeterminate Appearance",
+    "3": "Atypical Appearance"
+  },
+  "validation_metrics": {
+    "accuracy": 0.5516969218626677,
+    "precision_weighted": 0.60030851147393,
+    "recall_weighted": 0.5516969218626677,
+    "f1_weighted": 0.5628914781897176,
+    "precision_macro": 0.45941975781029326,
+    "recall_macro": 0.4866490143646263,
+    "f1_macro": 0.4531524955976062,
+    "loss": 1.1607743501663208
+  },
+  "augmentation_config": {
+    "rotation_range": 15,
+    "width_shift_range": 0.1,
+    "height_shift_range": 0.1,
+    "shear_range": 0.1,
+    "zoom_range": 0.1,
+    "horizontal_flip": true,
+    "fill_mode": "nearest"
+  }
+}

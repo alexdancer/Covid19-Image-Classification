@@ -113,6 +113,25 @@ class ModelSerializer:
             json.dump(readable_metadata, f, indent=2)
         
         if training_history:
+            # Handle training histories with different lengths
+            # Check if all arrays have the same length
+            lengths = [len(v) if isinstance(v, (list, np.ndarray)) else 1 for v in training_history.values()]
+            if len(set(lengths)) > 1:
+                # Pad shorter arrays with NaN
+                max_length = max(lengths)
+                padded_history = {}
+                for key, values in training_history.items():
+                    if isinstance(values, (list, np.ndarray)):
+                        current_length = len(values)
+                        if current_length < max_length:
+                            padding = [np.nan] * (max_length - current_length)
+                            padded_history[key] = list(values) + padding
+                        else:
+                            padded_history[key] = values
+                    else:
+                        padded_history[key] = values
+                training_history = padded_history
+            
             history_df = pd.DataFrame(training_history)
             history_file = model_path / "training_history.csv"
             history_df.to_csv(history_file, index=False)
@@ -188,12 +207,6 @@ class ModelSerializer:
         return loaded_package
     
     def list_saved_models(self) -> list:
-        """
-        List all saved models
-        
-        Returns:
-            List of model directory paths
-        """
         model_dirs = [d for d in self.base_dir.iterdir() if d.is_dir()]
         return sorted(model_dirs, reverse=True)  # Most recent first
     
