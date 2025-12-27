@@ -2,28 +2,28 @@ MODEL COMPARISON SUMMARY
 ============================================================
 
 Overall Metrics:
-  Accuracy improvement: -0.0805 (-13.21%)
-  Weighted F1 improvement: +0.0224 (+4.33%)
-  Macro F1 improvement: +0.0933 (+27.43%)
+  Accuracy improvement: -0.0726 (-11.92%)
+  Weighted F1 improvement: +0.0385 (+7.43%)
+  Macro F1 improvement: +0.1078 (+31.71%)
 
 Per-Class Improvements:
 
   Negative for Pneumonia:
-    Precision: -0.0461
-    Recall:    +0.1525
-    F1-Score:  +0.0324
+    Precision: -0.0094
+    Recall:    +0.0718
+    F1-Score:  +0.0231
 
   Typical Appearance:
-    Precision: +0.2142
-    Recall:    -0.3776
-    F1-Score:  -0.0761
+    Precision: +0.1936
+    Recall:    -0.3343
+    F1-Score:  -0.0527
 
   Indeterminate Appearance:
-    Precision: +0.2357
-    Recall:    +0.1667
-    F1-Score:  +0.1953
+    Precision: +0.2452
+    Recall:    +0.2297
+    F1-Score:  +0.2372
 
   Atypical Appearance:
-    Precision: +0.1545
-    Recall:    +0.3918
-    F1-Score:  +0.2216
+    Precision: +0.1600
+    Recall:    +0.3711
+    F1-Score:  +0.2236

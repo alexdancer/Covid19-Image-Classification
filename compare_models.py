@@ -17,11 +17,83 @@ plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("husl")
 
 
+def normalize_metrics(metrics: Dict, class_labels: Dict) -> Dict:
+    """
+    Normalize metrics dictionary to standard format
+    
+    Handles different metric key formats:
+    - Old format: 'precision', 'recall', 'f1_score'
+    - New format: 'precision_weighted', 'recall_weighted', 'f1_weighted', etc.
+    
+    Args:
+        metrics: Dictionary with metrics (may be in old or new format)
+        class_labels: Dictionary mapping class indices to labels (can have int or str keys)
+        
+    Returns:
+        Normalized metrics dictionary
+    """
+    normalized = metrics.copy() if metrics else {}
+    
+    # Normalize old format to new format (always ensure weighted metrics exist)
+    if 'precision_weighted' not in normalized:
+        normalized['precision_weighted'] = normalized.get('precision', 0.0)
+    if 'recall_weighted' not in normalized:
+        normalized['recall_weighted'] = normalized.get('recall', 0.0)
+    if 'f1_weighted' not in normalized:
+        normalized['f1_weighted'] = normalized.get('f1_score', 0.0)
+    
+    # Debug: verify keys were created
+    if 'precision_weighted' not in normalized:
+        raise ValueError(f"Failed to create precision_weighted. Available keys: {list(normalized.keys())}")
+    
+    # Set default macro metrics if missing (use weighted as fallback)
+    if 'precision_macro' not in normalized:
+        normalized['precision_macro'] = normalized.get('precision_weighted', 0.0)
+    if 'recall_macro' not in normalized:
+        normalized['recall_macro'] = normalized.get('recall_weighted', 0.0)
+    if 'f1_macro' not in normalized:
+        normalized['f1_macro'] = normalized.get('f1_weighted', 0.0)
+    
+    # Ensure accuracy exists
+    if 'accuracy' not in normalized:
+        normalized['accuracy'] = 0.0
+    
+    # Ensure per_class metrics exist (create empty structure if missing)
+    if 'per_class' not in normalized:
+        normalized['per_class'] = {}
+    
+    # Handle class_labels with string or int keys
+    # Convert to list of class names
+    if class_labels:
+        # Try to get class names - handle both string and int keys
+        class_names = []
+        for i in range(len(class_labels)):
+            # Try int key first, then string key
+            class_name = class_labels.get(i) or class_labels.get(str(i))
+            if class_name:
+                class_names.append(class_name)
+        
+        # If that didn't work, just get all values
+        if not class_names:
+            class_names = list(class_labels.values())
+        
+        # Ensure all classes have per_class metrics
+        for class_name in class_names:
+            if class_name not in normalized['per_class']:
+                normalized['per_class'][class_name] = {
+                    'precision': 0.0,
+                    'recall': 0.0,
+                    'f1': 0.0
+                }
+    
+    return normalized
+
+
 class ModelComparator:
     """Compare performance metrics between two models"""
     
     def __init__(self, custom_cnn_metrics: Dict, transfer_learning_metrics: Dict, 
-                 class_labels: Dict[int, str], output_dir: Optional[Path] = None):
+                 class_labels: Dict, output_dir: Optional[Path] = None):
         """
         Initialize ModelComparator
         
@@ -31,14 +103,39 @@ class ModelComparator:
             class_labels: Dictionary mapping class indices to labels
             output_dir: Optional directory to save comparison results
         """
-        self.custom_cnn_metrics = custom_cnn_metrics
-        self.transfer_learning_metrics = transfer_learning_metrics
+        # Normalize metrics to handle different formats
+        self.custom_cnn_metrics = normalize_metrics(custom_cnn_metrics, class_labels)
+        self.transfer_learning_metrics = normalize_metrics(transfer_learning_metrics, class_labels)
+        
+        # Verify normalization worked (debug check)
+        required_keys = ['accuracy', 'precision_weighted', 'recall_weighted', 'f1_weighted', 
+                         'precision_macro', 'recall_macro', 'f1_macro']
+        missing_cnn = [k for k in required_keys if k not in self.custom_cnn_metrics]
+        missing_tl = [k for k in required_keys if k not in self.transfer_learning_metrics]
+        
+        if missing_cnn:
+            raise ValueError(f"Custom CNN metrics missing required keys after normalization: {missing_cnn}. "
+                           f"Available keys: {list(self.custom_cnn_metrics.keys())}")
+        if missing_tl:
+            raise ValueError(f"Transfer Learning metrics missing required keys after normalization: {missing_tl}. "
+                           f"Available keys: {list(self.transfer_learning_metrics.keys())}")
+        
         self.class_labels = class_labels
         self.output_dir = output_dir or Path('comparison_results')
         self.output_dir.mkdir(exist_ok=True)
         
-        # Extract class names
-        self.class_names = [class_labels[i] for i in range(len(class_labels))]
+        # Extract class names (handle both string and int keys)
+        if class_labels:
+            self.class_names = []
+            for i in range(len(class_labels)):
+                class_name = class_labels.get(i) or class_labels.get(str(i))
+                if class_name:
+                    self.class_names.append(class_name)
+            # Fallback: just get all values if above didn't work
+            if not self.class_names:
+                self.class_names = list(class_labels.values())
+        else:
+            self.class_names = []
     
     def compare_overall_metrics(self) -> pd.DataFrame:
         """
@@ -51,26 +148,27 @@ class ModelComparator:
         print("OVERALL METRICS COMPARISON")
         print("=" * 60)
         
+        # Use .get() with defaults for safety (normalization should have created these, but be defensive)
         comparison_data = {
             'Metric': ['Accuracy', 'Precision (Weighted)', 'Recall (Weighted)', 'F1-Score (Weighted)',
                        'Precision (Macro)', 'Recall (Macro)', 'F1-Score (Macro)'],
             'Custom CNN': [
-                self.custom_cnn_metrics['accuracy'],
-                self.custom_cnn_metrics['precision_weighted'],
-                self.custom_cnn_metrics['recall_weighted'],
-                self.custom_cnn_metrics['f1_weighted'],
-                self.custom_cnn_metrics['precision_macro'],
-                self.custom_cnn_metrics['recall_macro'],
-                self.custom_cnn_metrics['f1_macro']
+                self.custom_cnn_metrics.get('accuracy', 0.0),
+                self.custom_cnn_metrics.get('precision_weighted', 0.0),
+                self.custom_cnn_metrics.get('recall_weighted', 0.0),
+                self.custom_cnn_metrics.get('f1_weighted', 0.0),
+                self.custom_cnn_metrics.get('precision_macro', 0.0),
+                self.custom_cnn_metrics.get('recall_macro', 0.0),
+                self.custom_cnn_metrics.get('f1_macro', 0.0)
             ],
             'Transfer Learning': [
-                self.transfer_learning_metrics['accuracy'],
-                self.transfer_learning_metrics['precision_weighted'],
-                self.transfer_learning_metrics['recall_weighted'],
-                self.transfer_learning_metrics['f1_weighted'],
-                self.transfer_learning_metrics['precision_macro'],
-                self.transfer_learning_metrics['recall_macro'],
-                self.transfer_learning_metrics['f1_macro']
+                self.transfer_learning_metrics.get('accuracy', 0.0),
+                self.transfer_learning_metrics.get('precision_weighted', 0.0),
+                self.transfer_learning_metrics.get('recall_weighted', 0.0),
+                self.transfer_learning_metrics.get('f1_weighted', 0.0),
+                self.transfer_learning_metrics.get('precision_macro', 0.0),
+                self.transfer_learning_metrics.get('recall_macro', 0.0),
+                self.transfer_learning_metrics.get('f1_macro', 0.0)
             ]
         }
         
@@ -157,20 +255,29 @@ class ModelComparator:
         
         per_class_comparison = []
         for class_name in self.class_names:
-            cnn_metrics = self.custom_cnn_metrics['per_class'][class_name]
-            tl_metrics = self.transfer_learning_metrics['per_class'][class_name]
+            # Get per_class metrics with safe defaults
+            cnn_per_class = self.custom_cnn_metrics.get('per_class', {}).get(class_name, {})
+            tl_per_class = self.transfer_learning_metrics.get('per_class', {}).get(class_name, {})
+            
+            cnn_precision = cnn_per_class.get('precision', 0.0)
+            cnn_recall = cnn_per_class.get('recall', 0.0)
+            cnn_f1 = cnn_per_class.get('f1', 0.0)
+            
+            tl_precision = tl_per_class.get('precision', 0.0)
+            tl_recall = tl_per_class.get('recall', 0.0)
+            tl_f1 = tl_per_class.get('f1', 0.0)
             
             per_class_comparison.append({
                 'Class': class_name,
-                'CNN Precision': cnn_metrics['precision'],
-                'TL Precision': tl_metrics['precision'],
-                'Precision Δ': tl_metrics['precision'] - cnn_metrics['precision'],
-                'CNN Recall': cnn_metrics['recall'],
-                'TL Recall': tl_metrics['recall'],
-                'Recall Δ': tl_metrics['recall'] - cnn_metrics['recall'],
-                'CNN F1': cnn_metrics['f1'],
-                'TL F1': tl_metrics['f1'],
-                'F1 Δ': tl_metrics['f1'] - cnn_metrics['f1']
+                'CNN Precision': cnn_precision,
+                'TL Precision': tl_precision,
+                'Precision Δ': tl_precision - cnn_precision,
+                'CNN Recall': cnn_recall,
+                'TL Recall': tl_recall,
+                'Recall Δ': tl_recall - cnn_recall,
+                'CNN F1': cnn_f1,
+                'TL F1': tl_f1,
+                'F1 Δ': tl_f1 - cnn_f1
             })
         
         per_class_df = pd.DataFrame(per_class_comparison)
@@ -253,38 +360,51 @@ class ModelComparator:
         print(f"  Weighted F1 improvement: {comparison_df.iloc[3]['Improvement']:+.4f} ({comparison_df.iloc[3]['Improvement %']:+.2f}%)")
         print(f"  Macro F1 improvement: {comparison_df.iloc[6]['Improvement']:+.4f} ({comparison_df.iloc[6]['Improvement %']:+.2f}%)")
         
-        print("\nPer-Class Improvements:")
-        for _, row in per_class_df.iterrows():
-            print(f"\n  {row['Class']}:")
-            print(f"    Precision: {row['Precision Δ']:+.4f}")
-            print(f"    Recall:    {row['Recall Δ']:+.4f}")
-            print(f"    F1-Score:  {row['F1 Δ']:+.4f}")
+        if len(per_class_df) > 0:
+            print("\nPer-Class Improvements:")
+            for _, row in per_class_df.iterrows():
+                print(f"\n  {row['Class']}:")
+                print(f"    Precision: {row['Precision Δ']:+.4f}")
+                print(f"    Recall:    {row['Recall Δ']:+.4f}")
+                print(f"    F1-Score:  {row['F1 Δ']:+.4f}")
+        else:
+            print("\nPer-Class Improvements: Not available")
         
         # Key findings
         print("\n" + "=" * 60)
         print("KEY FINDINGS")
         print("=" * 60)
         
-        # Check if transfer learning improved minority classes
-        indeterminate_improved = per_class_df[per_class_df['Class'] == 'Indeterminate Appearance']['F1 Δ'].values[0] > 0
-        atypical_improved = per_class_df[per_class_df['Class'] == 'Atypical Appearance']['F1 Δ'].values[0] > 0
-        
-        if indeterminate_improved or atypical_improved:
-            print("\n✓ Transfer learning improved performance on minority classes:")
-            if indeterminate_improved:
-                tl_f1 = self.transfer_learning_metrics['per_class']['Indeterminate Appearance']['f1']
-                print(f"  - Indeterminate Appearance: Improved from 0.00 to {tl_f1:.4f} F1-Score")
-            if atypical_improved:
-                tl_f1 = self.transfer_learning_metrics['per_class']['Atypical Appearance']['f1']
-                print(f"  - Atypical Appearance: Improved from 0.00 to {tl_f1:.4f} F1-Score")
-        else:
-            print("\n⚠ Transfer learning did not significantly improve minority class performance")
+        # Check if transfer learning improved minority classes (if per_class data available)
+        if len(per_class_df) > 0:
+            try:
+                indeterminate_row = per_class_df[per_class_df['Class'] == 'Indeterminate Appearance']
+                atypical_row = per_class_df[per_class_df['Class'] == 'Atypical Appearance']
+                
+                if len(indeterminate_row) > 0 and len(atypical_row) > 0:
+                    indeterminate_improved = indeterminate_row['F1 Δ'].values[0] > 0
+                    atypical_improved = atypical_row['F1 Δ'].values[0] > 0
+                    
+                    if indeterminate_improved or atypical_improved:
+                        print("\n✓ Transfer learning improved performance on minority classes:")
+                        if indeterminate_improved:
+                            tl_f1 = self.transfer_learning_metrics.get('per_class', {}).get('Indeterminate Appearance', {}).get('f1', 0.0)
+                            cnn_f1 = self.custom_cnn_metrics.get('per_class', {}).get('Indeterminate Appearance', {}).get('f1', 0.0)
+                            print(f"  - Indeterminate Appearance: Improved from {cnn_f1:.4f} to {tl_f1:.4f} F1-Score")
+                        if atypical_improved:
+                            tl_f1 = self.transfer_learning_metrics.get('per_class', {}).get('Atypical Appearance', {}).get('f1', 0.0)
+                            cnn_f1 = self.custom_cnn_metrics.get('per_class', {}).get('Atypical Appearance', {}).get('f1', 0.0)
+                            print(f"  - Atypical Appearance: Improved from {cnn_f1:.4f} to {tl_f1:.4f} F1-Score")
+                    else:
+                        print("\nTransfer learning did not significantly improve minority class performance")
+            except (KeyError, IndexError):
+                print("\nNote: Per-class metrics comparison limited due to missing data")
         
         accuracy_improvement = comparison_df.iloc[0]['Improvement']
         if accuracy_improvement > 0:
-            print(f"\n✓ Overall accuracy improved by {accuracy_improvement:+.4f}")
+            print(f"\nOverall accuracy improved by {accuracy_improvement:+.4f}")
         else:
-            print(f"\n⚠ Overall accuracy decreased by {abs(accuracy_improvement):.4f}")
+            print(f"\nOverall accuracy decreased by {abs(accuracy_improvement):.4f}")
         
         print("=" * 60)
         
@@ -297,12 +417,15 @@ class ModelComparator:
             f.write(f"  Accuracy improvement: {comparison_df.iloc[0]['Improvement']:+.4f} ({comparison_df.iloc[0]['Improvement %']:+.2f}%)\n")
             f.write(f"  Weighted F1 improvement: {comparison_df.iloc[3]['Improvement']:+.4f} ({comparison_df.iloc[3]['Improvement %']:+.2f}%)\n")
             f.write(f"  Macro F1 improvement: {comparison_df.iloc[6]['Improvement']:+.4f} ({comparison_df.iloc[6]['Improvement %']:+.2f}%)\n\n")
-            f.write("Per-Class Improvements:\n")
-            for _, row in per_class_df.iterrows():
-                f.write(f"\n  {row['Class']}:\n")
-                f.write(f"    Precision: {row['Precision Δ']:+.4f}\n")
-                f.write(f"    Recall:    {row['Recall Δ']:+.4f}\n")
-                f.write(f"    F1-Score:  {row['F1 Δ']:+.4f}\n")
+            if len(per_class_df) > 0:
+                f.write("Per-Class Improvements:\n")
+                for _, row in per_class_df.iterrows():
+                    f.write(f"\n  {row['Class']}:\n")
+                    f.write(f"    Precision: {row['Precision Δ']:+.4f}\n")
+                    f.write(f"    Recall:    {row['Recall Δ']:+.4f}\n")
+                    f.write(f"    F1-Score:  {row['F1 Δ']:+.4f}\n")
+            else:
+                f.write("Per-Class Improvements: Not available\n")
         
         print(f"\n✓ Summary saved to: {summary_path}")
     
@@ -316,9 +439,27 @@ class ModelComparator:
         comparison_df = self.compare_overall_metrics()
         self.visualize_overall_metrics(comparison_df)
         
-        # Per-class metrics comparison
-        per_class_df = self.compare_per_class_metrics()
-        self.visualize_per_class_metrics(per_class_df)
+        # Per-class metrics comparison (if available)
+        has_per_class = (
+            self.custom_cnn_metrics.get('per_class') and 
+            self.transfer_learning_metrics.get('per_class') and
+            len(self.custom_cnn_metrics.get('per_class', {})) > 0
+        )
+        
+        if has_per_class:
+            per_class_df = self.compare_per_class_metrics()
+            self.visualize_per_class_metrics(per_class_df)
+        else:
+            print("\n" + "=" * 60)
+            print("PER-CLASS METRICS COMPARISON")
+            print("=" * 60)
+            print("Note: Per-class metrics not available for one or both models.")
+            print("Skipping per-class comparison.")
+            print("=" * 60)
+            # Create empty DataFrame for summary report
+            per_class_df = pd.DataFrame(columns=['Class', 'CNN Precision', 'TL Precision', 
+                                                  'Precision Δ', 'CNN Recall', 'TL Recall', 
+                                                  'Recall Δ', 'CNN F1', 'TL F1', 'F1 Δ'])
         
         # Generate summary
         self.generate_summary_report(comparison_df, per_class_df)
